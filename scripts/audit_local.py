@@ -10,6 +10,7 @@
   secrets      ctx.secrets.get 的 key ⊆ setup_schema(反向不覆蓋則 warn)
   dsl          data_center_schema 驗證(本地鏡射或權威 parser)
   reserved     自建表名撞平台保留母體(SQL 保留字/ERP 表/平台地板表 → 安裝當下 409)
+  reuse        [WARN] 自建表其實平台已有(ERP 內建表 → 改引用;標準表同義名 → 改用標準表)
   legacy       禁舊制 CustomObject(meta 欄位 + *_object API)
   meta 閘      _template_meta.json 已經用戶確認(transfer_cli.py confirm-meta)且未再變更
   limits       檔數/單檔大小(AI GO 200 檔/1MB)
@@ -192,6 +193,44 @@ def audit_reserved_table_names(template: Path) -> list[str]:
     return failures
 
 
+def audit_reuse_suggestions(template: Path) -> list[str]:
+    """拆解復用提示(AI GO ADR 0037,**warn 不擋**):data_center_schema 宣告要自建的表,
+    平台其實已經有了——ERP 內建表應改走 data_references_schema 引用;命中標準表契約同義名
+    的應改用標準表,同租戶其他 App 可直接共用。
+
+    吃 config/standard_tables.json 快照;權威目錄是平台 GET /api/v1/builder/capabilities
+    (或 `aigo apps reuse plan`)。改表名屬 Phase 3 裁決,這裡只提示不自動改。"""
+    meta_path = template / "_template_meta.json"
+    if not meta_path.exists():
+        return []
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    tables = (meta.get("data_center_schema") or {}).get("tables") or []
+    if not isinstance(tables, list):
+        return []
+    cfg = common.load_config("standard_tables.json")
+    erp_sugg: dict = cfg.get("erp_reference_suggestions", {})
+    alias_index = {alias: (t["key"], t.get("display_name", ""))
+                   for t in cfg.get("standard_tables", [])
+                   for alias in t.get("aliases", [])}
+    standard_keys = {t["key"] for t in cfg.get("standard_tables", [])}
+    warns: list[str] = []
+    for table in tables:
+        key = table.get("key") if isinstance(table, dict) else None
+        if not isinstance(key, str) or key in standard_keys:
+            continue
+        if key in erp_sugg:
+            warns.append(f"自建表 '{key}' 與平台內建 ERP 表同義——建議改走 data_references_schema "
+                         f"引用 '{erp_sugg[key]}',不要另建")
+        elif key in alias_index:
+            std_key, name = alias_index[key]
+            warns.append(f"自建表 '{key}' 命中標準表 '{std_key}'({name})的同義名——"
+                         f"建議改用標準表,同租戶其他 App 可共用")
+    return warns
+
+
 def audit_legacy(template: Path, rule: dict) -> list[str]:
     failures: list[str] = []
     meta_path = template / "_template_meta.json"
@@ -288,6 +327,7 @@ def main() -> None:
     results["檔數/路徑上限"] = limit_fails
     results["meta 人工閘"] = audit_meta_gate(work, template)
     results["污染複掃"] = audit_pollution_rescan(work, template)
+    reuse_warns = audit_reuse_suggestions(template)
 
     all_pass = True
     for name, failures in results.items():
@@ -298,12 +338,12 @@ def main() -> None:
                 print(f"   {msg}")
         else:
             print(f"[OK]   {name}")
-    for w in secret_warns + limit_warns:
+    for w in secret_warns + limit_warns + reuse_warns:
         print(f"[WARN] {w}")
     print("[NOTE] tags 白名單與 preflight 由 S7 在平台端驗證")
 
     report = {name: failures for name, failures in results.items()}
-    report["_warnings"] = secret_warns + limit_warns
+    report["_warnings"] = secret_warns + limit_warns + reuse_warns
     common.dump_json(work / "audit_report.json", report)
 
     if not all_pass:

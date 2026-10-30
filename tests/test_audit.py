@@ -7,7 +7,8 @@ import helpers
 import common
 from audit_core import run_audit
 from audit_local import (audit_dsl, audit_legacy, audit_manifest,
-                         audit_reserved_table_names, audit_secrets, audit_shape)
+                         audit_reserved_table_names, audit_reuse_suggestions,
+                         audit_secrets, audit_shape)
 
 
 class TestAudit(unittest.TestCase):
@@ -63,6 +64,23 @@ class TestAudit(unittest.TestCase):
     def test_reserved_check_passes_clean_names(self):
         self._write_meta_with_tables("csd_tickets", "order_notes")
         self.assertEqual(audit_reserved_table_names(self.template), [])
+
+    def test_reuse_suggestions_warn_for_erp_and_standard_aliases(self):
+        """ADR 0037:members 是 ERP 內建表 → 改引用;profiles 是 app_members 同義名 → 改用標準表;
+        app_members 本身與 csd_tickets 不提示。皆為 warn,不進 failures。"""
+        self._write_meta_with_tables("members", "profiles", "app_members", "csd_tickets")
+        warns = audit_reuse_suggestions(self.template)
+        self.assertEqual(len(warns), 2, warns)
+        text = "\n".join(warns)
+        self.assertIn("'members'", text)
+        self.assertIn("data_references_schema", text)
+        self.assertIn("'profiles'", text)
+        self.assertIn("app_members", text)
+        self.assertNotIn("csd_tickets", text)
+        # reserved 閘獨立運作:members 同時是 ERP 保留名(硬擋 409),profiles/app_members 不是
+        reserved = audit_reserved_table_names(self.template)
+        self.assertEqual(len(reserved), 1, reserved)
+        self.assertIn("'members'", reserved[0])
 
     def test_minimal_template_passes_all(self):
         for name, failures in self.all_results().items():

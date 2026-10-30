@@ -1,0 +1,25 @@
+{
+  "_comment": "拆解復用快照(AI GO ADR 0037)。SSOT:AI GO backend/app/services/data_center/standard_tables.py;權威目錄:GET /api/v1/builder/capabilities 或 `aigo apps reuse plan`。快照只會落後不會超前,落後時以平台為準並重生。",
+  "snapshot_date": "2026-10-30",
+  "standard_tables": [
+    {"key": "app_members", "display_name": "會員資料", "aliases": ["profiles", "user_profiles", "member", "members", "kolable_members", "vb_user"]},
+    {"key": "app_staff", "display_name": "人員", "aliases": ["staff", "teacher", "teachers", "dw_sales_person"]},
+    {"key": "app_companies", "display_name": "公司", "aliases": ["company", "companies", "vb_company", "payer_company"]},
+    {"key": "app_tags", "display_name": "標籤", "aliases": ["tag", "tags", "chat_tag", "entity_tag"]},
+    {"key": "app_tasks", "display_name": "待辦", "aliases": ["tasks", "dw_task", "jobs", "system_job"]},
+    {"key": "app_events", "display_name": "活動", "aliases": ["event", "events", "event_session"]},
+    {"key": "app_bookings", "display_name": "預約", "aliases": ["booking", "bookings", "consultations"]},
+    {"key": "app_messages", "display_name": "訊息紀錄", "aliases": ["messages", "line_chat_logs", "student_chat_message"]},
+    {"key": "app_line_bindings", "display_name": "LINE 綁定", "aliases": ["line_binding_codes", "user_email_mapping"]},
+    {"key": "app_kv", "display_name": "設定值", "aliases": ["bot_kv", "warroom_kv", "sync_state", "app_settings"]},
+    {"key": "app_audit_log", "display_name": "操作紀錄", "aliases": ["audit_log", "kolable_change_log", "forecast_change_log", "vb_cp_change_log"]}
+  ],
+  "erp_reference_suggestions": {
+    "members": "members",
+    "notifications": "notifications",
+    "customers": "customers",
+    "products": "product_products",
+    "sale_orders": "sale_orders",
+    "employees": "hr_employees"
+  }
+}

@@ -4,6 +4,18 @@
 **每次改動 Skill 內容(SKILL.md / references / config / scripts)都要同步更新 `VERSION`**,
 否則使用者端的更新檢查(`scripts/check_update.py`)不會提示。
 
+## 0.10.0
+
+拆解復用提示(AI GO ADR 0037)。
+
+- `audit_local.py` 新增 `audit_reuse_suggestions`(**warn 不擋**):data_center_schema 宣告要自建的表,
+  若是平台內建 ERP 表(`members`、`notifications`…)提示改走 data_references_schema 引用;
+  若命中標準表契約的同義名(`profiles`→`app_members`)提示改用標準表,同租戶其他 App 可共用。
+  訊息進 `audit_report.json` 的 `_warnings`。
+- 新增 `config/standard_tables.json` 快照;權威目錄是平台 `GET /api/v1/builder/capabilities`
+  或 `aigo apps reuse plan`,落後時以平台為準重生。
+- 改表名屬 Phase 3 裁決,本版只提示不自動改。
+
 ## 0.9.0
 
 對齊 aigo-app-builder-skill v1.16.0(前次基準 v1.2.0,落差 14 版逐版盤點;
